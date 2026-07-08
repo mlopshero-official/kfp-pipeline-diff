@@ -62,11 +62,16 @@ runs:
           OPT_TOKEN="--github-token ${{ inputs.github-token }}"
         fi
 
+        OPT_PR=""
+        if [ -n "$PR_NUMBER" ]; then
+          OPT_PR="--github-pr $PR_NUMBER"
+        fi
+
         python3 -m kfp_pipeline_diff.cli \
           --before "${{ inputs.before }}" \
           --after "${{ inputs.after }}" \
           $OPT_OUTPUT \
           $OPT_TOKEN \
           --github-repo "${{ github.repository }}" \
-          --github-pr "$PR_NUMBER" \
+          $OPT_PR \
           --github-api-url "${{ github.api_url }}"
