@@ -1,6 +1,6 @@
 name: "Kubeflow Pipelines (KFP) DAG Diff Visualizer"
 description: "Parses, diffs, and renders a unified, color-coded Mermaid diagram of KFP v2 pipeline DAGs on Pull Request pushes."
-author: "soubenz94"
+author: "mlopshero-official"
 branding:
   icon: "git-branch"
   color: "purple"

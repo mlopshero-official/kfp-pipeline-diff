@@ -23,7 +23,7 @@ A lightweight, robust, and dependency-free automated command-line tool and GitHu
 To use the tool locally, clone the repository and install the package with standard development dependencies:
 
 ```bash
-git clone https://github.com/soubenz94/kfp-pipeline-diff.git
+git clone https://github.com/mlopshero-official/kfp-pipeline-diff.git
 cd kfp-pipeline-diff
 pip install .
 ```
@@ -74,7 +74,7 @@ jobs:
           python-version: '3.11'
 
       - name: Render DAG Diff
-        uses: soubenz94/kfp-pipeline-diff@main
+        uses: mlopshero-official/kfp-pipeline-diff@main
         with:
           before: "pipelines/baseline.yaml"
           after: "pipelines/target.py"
