@@ -160,8 +160,14 @@ def generate_markdown_report(diff: PipelineDiff, pr_number: Optional[int] = None
     if pr_number:
         header += f" (PR #{pr_number})"
 
+    # Display pipeline names/shift
+    if diff.before_name != diff.after_name:
+        pipeline_meta = f"\n🔄 **Pipeline Name Shift**: `{diff.before_name}` ➜ `{diff.after_name}`\n"
+    else:
+        pipeline_meta = f"\n📦 **Pipeline**: `{diff.after_name}`\n"
+
     # Summary table counts
-    summary = f"""
+    summary = f"""{pipeline_meta}
 | Change Type | Nodes (Tasks) | Edges (Dependencies) |
 | :--- | :---: | :---: |
 | 🟢 **Added** | {len(diff.added_nodes)} | {len(diff.added_edges)} |

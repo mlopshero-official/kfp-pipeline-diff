@@ -7,7 +7,7 @@ from typing import List, Optional
 
 from .diff import diff_pipelines
 from .github import post_or_update_sticky_comment
-from .parser import parse_pipeline_tasks
+from .parser import parse_pipeline_meta_and_tasks, parse_pipeline_tasks
 from .renderer import generate_markdown_report
 
 
@@ -66,13 +66,13 @@ def run_pipeline_diff(argv: Optional[List[str]] = None) -> int:
 
     try:
         print(f"🔍 Parsing baseline pipeline: {args.before}")
-        before_tasks = parse_pipeline_tasks(args.before)
+        before_name, before_tasks = parse_pipeline_meta_and_tasks(args.before)
 
         print(f"🔍 Parsing target pipeline: {args.after}")
-        after_tasks = parse_pipeline_tasks(args.after)
+        after_name, after_tasks = parse_pipeline_meta_and_tasks(args.after)
 
         print("⚖️ Diffing pipeline DAG representations...")
-        diff = diff_pipelines(before_tasks, after_tasks)
+        diff = diff_pipelines(before_tasks, after_tasks, before_name, after_name)
 
         print("📝 Generating markdown and Mermaid visual representation...")
         report = generate_markdown_report(diff, args.github_pr)
