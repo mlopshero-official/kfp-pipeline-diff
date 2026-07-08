@@ -1,0 +1,36 @@
+name: Test KFP Pipeline Diff CI
+
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  kfp-diff-test:
+    name: Run Pipeline Diff Visualizer Test
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write # Necessary to write/update sticky PR comments
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run local KFP Pipeline Diff Action
+        uses: ./
+        with:
+          before: "pipelines/pipeline_v1.py"
+          after: "pipelines/pipeline_v2.py"
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+          output: "local_diff_report.md"
+
+      - name: Print Generated Report
+        run: |
+          echo "=== Generated Markdown Report ==="
+          cat local_diff_report.md
+          echo "================================="
