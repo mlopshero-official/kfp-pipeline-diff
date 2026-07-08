@@ -96,3 +96,27 @@ def test_parse_pipeline_tasks():
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)
+
+
+def test_parse_real_pipelines():
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    v1_path = os.path.join(base_dir, "pipelines", "branching_v1.py")
+    v2_path = os.path.join(base_dir, "pipelines", "branching_v2.py")
+    
+    nodes_v1 = parse_pipeline_tasks(v1_path)
+    assert "preprocess-op" in nodes_v1
+    assert "train-xgboost-op" in nodes_v1
+    assert "train-rf-op" in nodes_v1
+    assert "ensemble-op" in nodes_v1
+
+    assert nodes_v1["ensemble-op"].dependent_tasks == ["train-rf-op", "train-xgboost-op"]
+
+    nodes_v2 = parse_pipeline_tasks(v2_path)
+    assert "preprocess-op" in nodes_v2
+    assert "train-rf-op" in nodes_v2
+    assert "train-nn-op" in nodes_v2
+    assert "ensemble-op" in nodes_v2
+    assert "train-xgboost-op" not in nodes_v2
+
+    assert nodes_v2["ensemble-op"].dependent_tasks == ["train-nn-op", "train-rf-op"]
+
