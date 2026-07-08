@@ -145,51 +145,118 @@ def extract_pipeline_spec(data: Dict[str, Any]) -> Dict[str, Any]:
     return data
 
 
-def parse_pipeline_tasks(file_path: str) -> Dict[str, TaskNode]:
-    """Parses a pipeline file and extracts its task execution DAG nodes.
+def extract_pipeline_name(pipeline_spec: Dict[str, Any]) -> str:
+    """Extracts the pipeline name from the pipelineSpec dictionary with robust fallbacks.
+
+    Args:
+        pipeline_spec: The parsed pipeline specification.
+
+    Returns:
+        The extracted pipeline name or 'unnamed-pipeline' as fallback.
+    """
+    if not isinstance(pipeline_spec, dict):
+        return "unnamed-pipeline"
+    
+    # KFP standard
+    info = pipeline_spec.get("pipelineInfo")
+    if isinstance(info, dict):
+        name = info.get("name")
+        if name:
+            return name
+            
+    # Generic names or display names at root level
+    for k in ["name", "displayName"]:
+        if k in pipeline_spec and isinstance(pipeline_spec[k], str):
+            return pipeline_spec[k]
+            
+    # Name within DAG root
+    root = pipeline_spec.get("root", {})
+    if isinstance(root, dict):
+        for k in ["name", "displayName"]:
+            if k in root and isinstance(root[k], str):
+                return root[k]
+                
+    return "unnamed-pipeline"
+
+
+def parse_pipeline_meta_and_tasks(file_path: str) -> tuple[str, Dict[str, TaskNode]]:
+    """Parses a pipeline file and extracts both its name and its task execution nodes.
+
+    Handles layout/structure differences across various KFP versions gracefully.
 
     Args:
         file_path: Path to the .py, .yaml, or .json pipeline file.
 
     Returns:
-        A dictionary mapping task names to TaskNode instances.
+        A tuple of (pipeline_name, dictionary of tasks).
     """
     raw_data = load_pipeline_spec_from_file(file_path)
     pipeline_spec = extract_pipeline_spec(raw_data)
+    pipeline_name = extract_pipeline_name(pipeline_spec)
 
     root = pipeline_spec.get("root", {})
     dag = root.get("dag", {})
     tasks_data = dag.get("tasks", {})
 
-    # In KFP, sometimes tasks is a list of dicts, or a dict keyed by task name
+    # KFP v2 list vs dict tasks normalization
     normalized_tasks: Dict[str, Dict[str, Any]] = {}
     if isinstance(tasks_data, list):
         for t in tasks_data:
-            name = t.get("taskInfo", {}).get("name") or t.get("name")
-            if name:
-                normalized_tasks[name] = t
+            if isinstance(t, dict):
+                name = t.get("taskInfo", {}).get("name") or t.get("name")
+                if name:
+                    normalized_tasks[name] = t
     elif isinstance(tasks_data, dict):
         for k, v in tasks_data.items():
-            name = v.get("taskInfo", {}).get("name") or k
-            normalized_tasks[name] = v
+            if isinstance(v, dict):
+                name = v.get("taskInfo", {}).get("name") or k
+                normalized_tasks[name] = v
 
+    # Normalize components structure
     components = pipeline_spec.get("components", {})
+    components_dict: Dict[str, Dict[str, Any]] = {}
+    if isinstance(components, dict):
+        for k, v in components.items():
+            if isinstance(v, dict):
+                components_dict[k] = v
+    elif isinstance(components, list):
+        for comp_item in components:
+            if isinstance(comp_item, dict):
+                c_name = comp_item.get("name") or comp_item.get("componentRef", {}).get("name")
+                if c_name:
+                    components_dict[c_name] = comp_item
+
+    # Normalize executors structure
     deployment_spec = pipeline_spec.get("deploymentSpec", {})
-    executors = deployment_spec.get("executors", {})
+    executors = deployment_spec.get("executors", {}) if isinstance(deployment_spec, dict) else {}
+    executors_dict: Dict[str, Dict[str, Any]] = {}
+    if isinstance(executors, dict):
+        for k, v in executors.items():
+            if isinstance(v, dict):
+                executors_dict[k] = v
+    elif isinstance(executors, list):
+        for exec_item in executors:
+            if isinstance(exec_item, dict):
+                label = exec_item.get("executorLabel") or exec_item.get("name")
+                if label:
+                    executors_dict[label] = exec_item
 
     parsed_nodes: Dict[str, TaskNode] = {}
 
     for task_name, task_def in normalized_tasks.items():
-        component_ref = task_def.get("componentRef", {}).get("name", "")
+        if not isinstance(task_def, dict):
+            continue
+        component_ref = task_def.get("componentRef", {}).get("name", "") if isinstance(task_def.get("componentRef"), dict) else ""
         dependent_tasks = task_def.get("dependentTasks", [])
 
         # Inputs resolution
         inputs: Dict[str, Any] = {}
         task_inputs = task_def.get("inputs", {})
-        if "parameters" in task_inputs:
-            inputs["parameters"] = task_inputs["parameters"]
-        if "artifacts" in task_inputs:
-            inputs["artifacts"] = task_inputs["artifacts"]
+        if isinstance(task_inputs, dict):
+            if "parameters" in task_inputs:
+                inputs["parameters"] = task_inputs["parameters"]
+            if "artifacts" in task_inputs:
+                inputs["artifacts"] = task_inputs["artifacts"]
 
         # Resolve component type & executor
         is_subdag = False
@@ -197,16 +264,16 @@ def parse_pipeline_tasks(file_path: str) -> Dict[str, TaskNode]:
         command = None
         args = None
 
-        if component_ref and component_ref in components:
-            component_def = components[component_ref]
+        if component_ref and component_ref in components_dict:
+            component_def = components_dict[component_ref]
             if "dag" in component_def:
                 is_subdag = True
             
             executor_label = component_def.get("executorLabel")
-            if executor_label and executor_label in executors:
-                executor_def = executors[executor_label]
+            if executor_label and executor_label in executors_dict:
+                executor_def = executors_dict[executor_label]
                 container = executor_def.get("container", {})
-                if container:
+                if isinstance(container, dict):
                     image = container.get("image")
                     command = container.get("command")
                     args = container.get("args")
@@ -223,5 +290,20 @@ def parse_pipeline_tasks(file_path: str) -> Dict[str, TaskNode]:
         )
         parsed_nodes[task_name] = node
 
-    return parsed_nodes
+    return pipeline_name, parsed_nodes
+
+
+def parse_pipeline_tasks(file_path: str) -> Dict[str, TaskNode]:
+    """Parses a pipeline file and extracts its task execution DAG nodes.
+
+    Provided for backward compatibility.
+
+    Args:
+        file_path: Path to the .py, .yaml, or .json pipeline file.
+
+    Returns:
+        A dictionary mapping task names to TaskNode instances.
+    """
+    _, tasks = parse_pipeline_meta_and_tasks(file_path)
+    return tasks
 
