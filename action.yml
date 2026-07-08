@@ -1,0 +1,72 @@
+name: "Kubeflow Pipelines (KFP) DAG Diff Visualizer"
+description: "Parses, diffs, and renders a unified, color-coded Mermaid diagram of KFP v2 pipeline DAGs on Pull Request pushes."
+author: "soubenz94"
+branding:
+  icon: "git-branch"
+  color: "purple"
+
+inputs:
+  before:
+    description: "Path to baseline compiled pipeline (JSON, YAML) or Python DSL script"
+    required: true
+  after:
+    description: "Path to target compiled pipeline (JSON, YAML) or Python DSL script"
+    required: true
+  github-token:
+    description: "GitHub token used to read/write PR comment"
+    required: false
+    default: "${{ github.token }}"
+  output:
+    description: "Optional local path to write the markdown report to"
+    required: false
+  kfp-version:
+    description: "Specific version range/constraint of the kfp SDK to install (e.g. '>=2.0.0')"
+    required: false
+    default: ">=2.0.0"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Ensure Python is available
+      shell: bash
+      run: |
+        if ! command -v python3 &>/dev/null; then
+          echo "❌ Python 3 is required but not found in the path."
+          exit 1
+        fi
+
+    - name: Install dependencies
+      shell: bash
+      run: |
+        python3 -m pip install --upgrade pip
+        python3 -m pip install pyyaml "kfp${{ inputs.kfp-version }}"
+
+    - name: Run KFP Pipeline Diff
+      shell: bash
+      env:
+        PYTHONPATH: "${{ github.action_path }}"
+      run: |
+        # Safely capture GHA inputs and context
+        PR_NUMBER=""
+        if [ "${{ github.event_name }}" = "pull_request" ]; then
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+        fi
+
+        OPT_OUTPUT=""
+        if [ -n "${{ inputs.output }}" ]; then
+          OPT_OUTPUT="--output ${{ inputs.output }}"
+        fi
+
+        OPT_TOKEN=""
+        if [ -n "${{ inputs.github-token }}" ]; then
+          OPT_TOKEN="--github-token ${{ inputs.github-token }}"
+        fi
+
+        python3 -m kfp_pipeline_diff.cli \
+          --before "${{ inputs.before }}" \
+          --after "${{ inputs.after }}" \
+          $OPT_OUTPUT \
+          $OPT_TOKEN \
+          --github-repo "${{ github.repository }}" \
+          --github-pr "$PR_NUMBER" \
+          --github-api-url "${{ github.api_url }}"
