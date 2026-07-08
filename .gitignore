@@ -209,6 +209,11 @@ tempCodeRunnerFile.py
 # PyPI configuration file
 .pypirc
 
+# Test local reports
+local_diff_report.md
+report.md
+
+
 # Marimo
 marimo/_static/
 marimo/_lsp/
