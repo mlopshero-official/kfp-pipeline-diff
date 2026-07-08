@@ -19,6 +19,8 @@ class PipelineDiff:
         unchanged_edges: Set[Tuple[str, str]],
         before_nodes: Dict[str, TaskNode],
         after_nodes: Dict[str, TaskNode],
+        before_name: str = "unnamed-pipeline",
+        after_name: str = "unnamed-pipeline",
     ):
         self.added_nodes = added_nodes
         self.removed_nodes = removed_nodes
@@ -30,6 +32,8 @@ class PipelineDiff:
         self.unchanged_edges = unchanged_edges
         self.before_nodes = before_nodes
         self.after_nodes = after_nodes
+        self.before_name = before_name
+        self.after_name = after_name
 
 
 def compare_task_properties(before: TaskNode, after: TaskNode) -> Dict[str, Dict[str, Any]]:
@@ -83,13 +87,17 @@ def extract_edges(tasks: Dict[str, TaskNode]) -> Set[Tuple[str, str]]:
 
 def diff_pipelines(
     before_tasks: Dict[str, TaskNode],
-    after_tasks: Dict[str, TaskNode]
+    after_tasks: Dict[str, TaskNode],
+    before_name: str = "unnamed-pipeline",
+    after_name: str = "unnamed-pipeline",
 ) -> PipelineDiff:
     """Reconciles two pipeline task mappings to classify node and edge changes.
 
     Args:
         before_tasks: Baseline task mappings.
         after_tasks: Target task mappings.
+        before_name: The extracted baseline pipeline name.
+        after_name: The extracted target pipeline name.
 
     Returns:
         A PipelineDiff result instance.
@@ -131,4 +139,6 @@ def diff_pipelines(
         unchanged_edges=unchanged_edges,
         before_nodes=before_tasks,
         after_nodes=after_tasks,
+        before_name=before_name,
+        after_name=after_name,
     )
