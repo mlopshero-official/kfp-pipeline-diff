@@ -1,0 +1,24 @@
+[project]
+name = "kfp-pipeline-diff"
+version = "0.1.0"
+description = "A lightweight tool to parse, diff, and visualize changes in Kubeflow Pipelines (KFP) v2 DAG structures"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "pyyaml>=6.0",
+    "kfp>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+
+[project.scripts]
+kfp-pipeline-diff = "kfp_pipeline_diff.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
