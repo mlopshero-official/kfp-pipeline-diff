@@ -13,8 +13,8 @@ inputs:
     description: "Path to target compiled pipeline (JSON, YAML) or Python DSL script"
     required: false
   pipelines-dir:
-    description: "Optional path to directory containing pipelines to scan and compare automatically"
-    required: false
+    description: "Path to directory containing pipelines to scan and compare automatically"
+    required: true
   git-base-branch:
     description: "Optional Git baseline branch for directory scan (defaults to GITHUB_BASE_REF or 'main')"
     required: false
