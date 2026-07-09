@@ -15,7 +15,7 @@ def evaluate_op(model: str) -> float:
 @dsl.pipeline(name="sample-training-pipeline")
 def my_pipeline(input_text: str = "  Some Text  "):
     preprocess_task = preprocess_op(text=input_text)
-    # Modified training epochs from 10 to 20
-    train_task = train_op(data=preprocess_task.output, epochs=20)
+    # Modified training epochs from 10 to 45 to verify independent comment parsing
+    train_task = train_op(data=preprocess_task.output, epochs=45)
     # Added evaluate task
     eval_task = evaluate_op(model=train_task.output)

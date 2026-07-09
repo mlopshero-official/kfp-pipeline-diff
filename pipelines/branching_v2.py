@@ -27,7 +27,7 @@ def branching_pipeline(data_path: str = "s3://my-bucket/raw-data.csv"):
     rf_task = train_rf_op(dataset=clean_task.output)
     
     # Added Neural Network train task (New component/task!)
-    nn_task = train_nn_op(dataset=clean_task.output, epochs=150)
+    nn_task = train_nn_op(dataset=clean_task.output, epochs=180) # Increased neural network epochs from 150 to 180 to register another diff
     
     # Ensemble them (Dependencies/edges changed: xgb removed, nn added!)
     ensemble_task = ensemble_op(model_a=rf_task.output, model_b=nn_task.output)
