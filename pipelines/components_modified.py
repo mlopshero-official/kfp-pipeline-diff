@@ -26,5 +26,19 @@ def container_train_op(
 
 @dsl.pipeline(name="sample-training-pipeline")
 def complex_pipeline(input_text: str = "  Some Text  "):
-    # Target name of the pipeline changed from "sample-training-pipeline" to something else!
-    pass
+    # Target name of the pipeline changed from "all-component-types-pipeline" to "sample-training-pipeline"!
+    # (a) Invoke Lightweight Python Component
+    prep_task = preprocess_op(text=input_text)
+    
+    # (b) Invoke KFP Importer Component
+    import_task = dsl.importer(
+        artifact_uri="gs://mlops-hero-bucket/reference_dataset.csv",
+        artifact_class=Dataset,
+        reimport=True,
+    )
+    
+    # (c) Invoke Containerized Component
+    train_task = container_train_op(
+        dataset=prep_task.output,
+        epochs=15,
+    )
