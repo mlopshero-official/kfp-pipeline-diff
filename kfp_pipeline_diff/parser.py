@@ -269,14 +269,24 @@ def parse_pipeline_meta_and_tasks(file_path: str) -> tuple[str, Dict[str, TaskNo
             if "dag" in component_def:
                 is_subdag = True
             
-            executor_label = component_def.get("executorLabel")
-            if executor_label and executor_label in executors_dict:
-                executor_def = executors_dict[executor_label]
-                container = executor_def.get("container", {})
-                if isinstance(container, dict):
-                    image = container.get("image")
-                    command = container.get("command")
-                    args = container.get("args")
+            # Special check for importer component type
+            if "importer" in component_def:
+                image = "kfp.dsl.importer"
+                command = ["importer"]
+                importer_def = component_def.get("importer", {})
+                args = [
+                    f"--artifact_uri={importer_def.get('artifactUri', {}).get('constant', '')}",
+                    f"--type_schema={importer_def.get('typeSchema', {}).get('instanceSchema', '')}"
+                ]
+            else:
+                executor_label = component_def.get("executorLabel")
+                if executor_label and executor_label in executors_dict:
+                    executor_def = executors_dict[executor_label]
+                    container = executor_def.get("container", {})
+                    if isinstance(container, dict):
+                        image = container.get("image")
+                        command = container.get("command")
+                        args = container.get("args")
 
         node = TaskNode(
             name=task_name,
