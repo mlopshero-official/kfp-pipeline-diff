@@ -55,6 +55,7 @@ def post_or_update_sticky_comment(
     token: str,
     body: str,
     api_url: str = "https://api.github.com",
+    anchor: Optional[str] = None,
 ) -> None:
     """Finds an existing pipeline diff comment with our anchor and updates it,
 
@@ -66,9 +67,12 @@ def post_or_update_sticky_comment(
         token: GitHub access token.
         body: The markdown/HTML text to write.
         api_url: Base GitHub api endpoint.
+        anchor: Unique sticky comment identifier anchor.
     """
     comments_url = f"{api_url}/repos/{repo}/issues/{pr_number}/comments"
-    anchor = "<!-- kfp-pipeline-diff-sticky-comment-anchor -->"
+    
+    # Fallback to the generic anchor if not explicitly specified
+    target_anchor = anchor or "<!-- kfp-pipeline-diff-sticky-comment-anchor -->"
 
     list_url = f"{comments_url}?per_page=100"
 
@@ -82,7 +86,7 @@ def post_or_update_sticky_comment(
     if isinstance(comments, list):
         for comment in comments:
             comment_body = comment.get("body", "")
-            if anchor in comment_body:
+            if target_anchor in comment_body:
                 existing_comment_id = comment.get("id")
                 break
 

@@ -8,10 +8,17 @@ branding:
 inputs:
   before:
     description: "Path to baseline compiled pipeline (JSON, YAML) or Python DSL script"
-    required: true
+    required: false
   after:
     description: "Path to target compiled pipeline (JSON, YAML) or Python DSL script"
-    required: true
+    required: false
+  pipelines-dir:
+    description: "Optional path to directory containing pipelines to scan and compare automatically"
+    required: false
+  git-base-branch:
+    description: "Optional Git baseline branch for directory scan (defaults to GITHUB_BASE_REF or 'main')"
+    required: false
+    default: "main"
   github-token:
     description: "GitHub token used to read/write PR comment"
     required: false
@@ -67,11 +74,29 @@ runs:
           OPT_PR="--github-pr $PR_NUMBER"
         fi
 
-        python3 -m kfp_pipeline_diff.cli \
-          --before "${{ inputs.before }}" \
-          --after "${{ inputs.after }}" \
-          $OPT_OUTPUT \
-          $OPT_TOKEN \
-          --github-repo "${{ github.repository }}" \
-          $OPT_PR \
-          --github-api-url "${{ github.api_url }}"
+        # Dynamically determine scan mode parameters
+        if [ -n "${{ inputs.pipelines-dir }}" ]; then
+          BASE_BRANCH="${{ inputs.git-base-branch }}"
+          if [ -n "${{ github.base_ref }}" ]; then
+            BASE_BRANCH="${{ github.base_ref }}"
+          fi
+          
+          python3 -m kfp_pipeline_diff.cli \
+            --pipelines-dir "${{ inputs.pipelines-dir }}" \
+            --git-base-branch "$BASE_BRANCH" \
+            $OPT_OUTPUT \
+            $OPT_TOKEN \
+            --github-repo "${{ github.repository }}" \
+            $OPT_PR \
+            --github-api-url "${{ github.api_url }}"
+        else
+          python3 -m kfp_pipeline_diff.cli \
+            --before "${{ inputs.before }}" \
+            --after "${{ inputs.after }}" \
+            $OPT_OUTPUT \
+            $OPT_TOKEN \
+            --github-repo "${{ github.repository }}" \
+            $OPT_PR \
+            --github-api-url "${{ github.api_url }}"
+        fi
+

@@ -220,9 +220,9 @@ _Legend: 🟢 green solid = added, 🔴 red dashed = removed, 🟡 amber solid =
 </details>
 """
 
-    # Combine everything including a sticky signature comment anchor
+    # Combine everything including a sticky signature comment anchor containing the pipeline name
     report = f"""{header}
-<!-- kfp-pipeline-diff-sticky-comment-anchor -->
+<!-- kfp-pipeline-diff-sticky-comment-anchor-{diff.after_name} -->
 
 ### 📊 Summary Statistics
 {summary}
