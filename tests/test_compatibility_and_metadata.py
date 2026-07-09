@@ -123,3 +123,43 @@ def test_pipeline_name_extraction_fallbacks():
 
     # Fallback to default
     assert extract_pipeline_name({}) == "unnamed-pipeline"
+
+
+def test_kfp_v2_component_types_parsing():
+    base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    comp_path = os.path.join(base_dir, "pipelines", "components_v1.py")
+    
+    pipeline_name, tasks = parse_pipeline_meta_and_tasks(comp_path)
+    
+    assert pipeline_name == "all-component-types-pipeline"
+    assert len(tasks) == 3
+    
+    # 1. Assert Lightweight Python Component
+    assert "preprocess-op" in tasks
+    python_task = tasks["preprocess-op"]
+    assert python_task.component_ref == "comp-preprocess-op"
+    assert python_task.image == "python:3.11"
+    
+    # 2. Assert KFP Importer Component
+    assert "importer" in tasks
+    importer_task = tasks["importer"]
+    assert importer_task.image == "kfp.dsl.importer"
+    assert importer_task.command == ["importer"]
+    assert any("artifact_uri=" in arg for arg in importer_task.args)
+    assert any("type_schema=" in arg for arg in importer_task.args)
+    
+    # 3. Assert Containerized Component
+    assert "container-train-op" in tasks
+    container_task = tasks["container-train-op"]
+    assert container_task.component_ref == "comp-container-train-op"
+    assert container_task.image == "tensorflow/tensorflow:latest-gpu"
+    assert container_task.command == ["python3", "-m", "trainer.task"]
+    assert container_task.args == [
+        "--dataset", 
+        "{{$.inputs.parameters['dataset']}}", 
+        "--model_path", 
+        "{{$.outputs.artifacts['model'].path}}", 
+        "--epochs", 
+        "{{$.inputs.parameters['epochs']}}"
+    ]
+
