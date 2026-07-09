@@ -24,13 +24,18 @@ jobs:
       - name: Run local KFP Pipeline Diff Action
         uses: ./
         with:
-          before: "pipelines/pipeline_v1.py"
-          after: "pipelines/pipeline_v2.py"
+          pipelines-dir: "pipelines"
           github-token: "${{ secrets.GITHUB_TOKEN }}"
           output: "local_diff_report.md"
 
-      - name: Print Generated Report
+      - name: Print Generated Reports
         run: |
-          echo "=== Generated Markdown Report ==="
-          cat local_diff_report.md
+          echo "=== Generated Markdown Reports ==="
+          for report in local_diff_report_*.md; do
+            if [ -f "$report" ]; then
+              echo "📄 File: $report"
+              cat "$report"
+              echo "-----------------------------------"
+            fi
+          done
           echo "================================="
