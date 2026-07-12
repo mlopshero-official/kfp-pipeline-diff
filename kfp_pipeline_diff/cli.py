@@ -10,7 +10,7 @@ from typing import List, Optional
 
 from .diff import diff_pipelines
 from .github import post_or_update_sticky_comment
-from .parser import parse_pipeline_meta_and_tasks, parse_pipeline_tasks
+from .parser import parse_pipeline_meta_and_tasks, parse_pipeline_tasks, parse_pipeline_parameters
 from .renderer import generate_markdown_report
 
 
@@ -68,6 +68,8 @@ def scan_and_diff_directory(
         print(f"  - {filepath}")
 
     has_failures = False
+    successful_runs = []
+    failed_runs = []
 
     for filepath in valid_pipelines:
         print(f"\n🧬 Processing pipeline file: {filepath}")
@@ -75,8 +77,10 @@ def scan_and_diff_directory(
         # Parse target version (after)
         try:
             after_name, after_tasks = parse_pipeline_meta_and_tasks(filepath)
+            after_params = parse_pipeline_parameters(filepath)
         except Exception as e:
             print(f"⚠️ Skipping '{filepath}': failed to parse/compile target version: {e}")
+            failed_runs.append({"file": filepath, "error": str(e)})
             has_failures = True
             continue
 
@@ -84,6 +88,7 @@ def scan_and_diff_directory(
         before_file = None
         before_name = after_name
         before_tasks = {}
+        before_params = {}
 
         # Convert path to relative representation to query Git
         rel_path = os.path.relpath(filepath)
@@ -97,9 +102,11 @@ def scan_and_diff_directory(
 
             try:
                 before_name, before_tasks = parse_pipeline_meta_and_tasks(before_file)
+                before_params = parse_pipeline_parameters(before_file)
             except Exception as e:
                 print(f"⚠️ Warning: Found '{filepath}' in baseline '{base_branch}', but failed to parse: {e}. Treating as new.")
                 before_tasks = {}
+                before_params = {}
             finally:
                 if before_file and os.path.exists(before_file):
                     os.remove(before_file)
@@ -107,7 +114,14 @@ def scan_and_diff_directory(
             print(f"ℹ️ File '{filepath}' does not exist in baseline branch '{base_branch}'. Treating as newly added.")
 
         # Reconcile baseline and target
-        diff = diff_pipelines(before_tasks, after_tasks, before_name, after_name)
+        diff = diff_pipelines(
+            before_tasks,
+            after_tasks,
+            before_name,
+            after_name,
+            before_params=before_params,
+            after_params=after_params,
+        )
 
         # Render reports
         report = generate_markdown_report(diff, github_pr)
@@ -129,6 +143,7 @@ def scan_and_diff_directory(
         print(f"    🟡 Modified tasks: {len(diff.modified_nodes)}")
         print(f"    ⚪ Unchanged tasks: {len(diff.unchanged_nodes)} | Edges: {len(diff.unchanged_edges)}")
 
+        commented_ok = False
         # Post update/create issue comments
         if github_token and github_repo and github_pr:
             print(f"📬 Posting/Updating sticky comment on PR #{github_pr} for pipeline '{after_name}'...")
@@ -143,9 +158,49 @@ def scan_and_diff_directory(
                     anchor=unique_anchor,
                 )
                 print(f"✨ Sticky comment for '{after_name}' posted successfully!")
+                commented_ok = True
             except Exception as e:
                 print(f"❌ Failed to post sticky comment for '{after_name}': {e}")
                 has_failures = True
+
+        successful_runs.append({
+            "file": filepath,
+            "name": after_name,
+            "added": len(diff.added_nodes),
+            "removed": len(diff.removed_nodes),
+            "modified": len(diff.modified_nodes),
+            "unchanged": len(diff.unchanged_nodes),
+            "commented": commented_ok
+        })
+
+    print("\n" + "=" * 80)
+    print("🏁 KFP PIPELINE DIFF SCAN EXECUTION SUMMARY")
+    print("=" * 80)
+    print(f"📁 Total Files Scanned: {len(valid_pipelines)}")
+    print(f"✅ Successfully Processed: {len(successful_runs)}")
+    print(f"❌ Skipped/Failed: {len(failed_runs)}\n")
+
+    if successful_runs:
+        print("📊 Successful Runs Detail:")
+        print("-" * 110)
+        print(f"{'Pipeline Name':<35} | {'File Path':<35} | {'Added':<6} | {'Removed':<7} | {'Modified':<8} | {'Commented':<9}")
+        print("-" * 110)
+        for run in successful_runs:
+            comment_status = "Yes" if run["commented"] else "No"
+            name_disp = run["name"][:32] + "..." if len(run["name"]) > 35 else run["name"]
+            file_disp = run["file"][:32] + "..." if len(run["file"]) > 35 else run["file"]
+            print(f"{name_disp:<35} | {file_disp:<35} | {run['added']:<6} | {run['removed']:<7} | {run['modified']:<8} | {comment_status:<9}")
+        print("-" * 110 + "\n")
+
+    if failed_runs:
+        print("⚠️ Skipped/Failed Runs Detail:")
+        print("-" * 80)
+        for run in failed_runs:
+            print(f"File:  {run['file']}")
+            print(f"Error: {run['error']}")
+            print("-" * 80)
+        print()
+    print("=" * 80 + "\n")
 
     return 1 if has_failures else 0
 
@@ -230,12 +285,21 @@ def run_pipeline_diff(argv: Optional[List[str]] = None) -> int:
     try:
         print(f"🔍 Parsing baseline pipeline: {args.before}")
         before_name, before_tasks = parse_pipeline_meta_and_tasks(args.before)
+        before_params = parse_pipeline_parameters(args.before)
 
         print(f"🔍 Parsing target pipeline: {args.after}")
         after_name, after_tasks = parse_pipeline_meta_and_tasks(args.after)
+        after_params = parse_pipeline_parameters(args.after)
 
         print("⚖️ Diffing pipeline DAG representations...")
-        diff = diff_pipelines(before_tasks, after_tasks, before_name, after_name)
+        diff = diff_pipelines(
+            before_tasks,
+            after_tasks,
+            before_name,
+            after_name,
+            before_params=before_params,
+            after_params=after_params,
+        )
 
         print("📝 Generating markdown and Mermaid visual representation...")
         report = generate_markdown_report(diff, args.github_pr)

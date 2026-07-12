@@ -318,3 +318,22 @@ def parse_pipeline_tasks(file_path: str) -> Dict[str, TaskNode]:
     _, tasks = parse_pipeline_meta_and_tasks(file_path)
     return tasks
 
+
+def parse_pipeline_parameters(file_path: str) -> Dict[str, Any]:
+    """Parses a pipeline file and extracts its pipeline-level input parameters.
+
+    Args:
+        file_path: Path to the pipeline file.
+
+    Returns:
+        A dictionary of parameter name -> parameter schema dict.
+    """
+    try:
+        raw_data = load_pipeline_spec_from_file(file_path)
+        pipeline_spec = extract_pipeline_spec(raw_data)
+        root = pipeline_spec.get("root", {})
+        input_definitions = root.get("inputDefinitions", {})
+        return input_definitions.get("parameters", {}) or {}
+    except Exception:
+        return {}
+

@@ -65,3 +65,27 @@ def test_diff_pipelines():
     assert ("task-a", "task-b") in diff.unchanged_edges
     assert ("task-b", "task-c") in diff.added_edges
     assert diff.removed_edges == set()
+
+
+def test_task_rename_detection():
+    # task-b is renamed to task-b-new, but retains component-ref comp-b
+    task_a_before = TaskNode("task-a", "comp-a", [], "python:3.9")
+    task_b_before = TaskNode("task-b", "comp-b", ["task-a"], "python:3.9")
+    before = {"task-a": task_a_before, "task-b": task_b_before}
+
+    task_a_after = TaskNode("task-a", "comp-a", [], "python:3.9")
+    task_b_after = TaskNode("task-b-new", "comp-b", ["task-a"], "python:3.9") # name changed, same component-ref
+    after = {"task-a": task_a_after, "task-b-new": task_b_after}
+
+    diff = diff_pipelines(before, after)
+
+    assert diff.renamed_nodes == {"task-b": "task-b-new"}
+    assert "task-b-new" in diff.modified_nodes
+    assert "task-b" not in diff.removed_nodes
+    assert "task-b-new" not in diff.added_nodes
+    assert "rename" in diff.node_changes["task-b-new"]
+    
+    # Verify edges were mapped and classified as unchanged!
+    assert ("task-a", "task-b-new") in diff.unchanged_edges
+    assert diff.added_edges == set()
+    assert diff.removed_edges == set()

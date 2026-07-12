@@ -3,6 +3,7 @@ import json
 import tempfile
 from kfp_pipeline_diff.parser import (
     parse_pipeline_meta_and_tasks,
+    parse_pipeline_parameters,
     extract_pipeline_name,
     TaskNode,
 )
@@ -162,4 +163,39 @@ def test_kfp_v2_component_types_parsing():
         "--epochs", 
         "{{$.inputs.parameters['epochs']}}"
     ]
+
+
+def test_pipeline_parameter_diffing():
+    # Baseline parameters
+    before_params = {
+        "param1": {"parameterType": "STRING", "defaultValue": "old-val"},
+        "param2": {"parameterType": "NUMBER", "defaultValue": 10},
+    }
+    
+    # Target parameters
+    after_params = {
+        "param1": {"parameterType": "STRING", "defaultValue": "new-val"},  # modified
+        "param3": {"parameterType": "BOOLEAN", "defaultValue": True},      # added
+    }
+    
+    diff = diff_pipelines(
+        before_tasks={},
+        after_tasks={},
+        before_name="my-pipe",
+        after_name="my-pipe",
+        before_params=before_params,
+        after_params=after_params,
+    )
+    
+    assert diff.added_parameters == {"param3"}
+    assert diff.removed_parameters == {"param2"}
+    assert "param1" in diff.modified_parameters
+    assert diff.modified_parameters["param1"]["defaultValue"]["before"] == "old-val"
+    assert diff.modified_parameters["param1"]["defaultValue"]["after"] == "new-val"
+    
+    report = generate_markdown_report(diff)
+    assert "Pipeline Input Parameters Diff" in report
+    assert "param1" in report
+    assert "param2" in report
+    assert "param3" in report
 

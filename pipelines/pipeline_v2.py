@@ -12,6 +12,10 @@ def train_op(data: str, epochs: int) -> str:
 def evaluate_op(model: str) -> float:
     return 0.95
 
+@dsl.component
+def notify_op(msg: str) -> str:
+    return f"Notification sent: {msg}"
+
 @dsl.pipeline(name="sample-training-pipeline")
 def my_pipeline(input_text: str = "  Some Text  "):
     preprocess_task = preprocess_op(text=input_text)
@@ -19,3 +23,6 @@ def my_pipeline(input_text: str = "  Some Text  "):
     train_task = train_op(data=preprocess_task.output, epochs=20)
     # Added evaluate task
     eval_task = evaluate_op(model=train_task.output)
+    # Added notify task to demonstrate new task & edge addition
+    notify_task = notify_op(msg="Model evaluated successfully!")
+
